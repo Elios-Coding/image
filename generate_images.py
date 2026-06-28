@@ -1,24 +1,34 @@
-import os
+from flask import Flask, render_template, request
 from diffusers import StableDiffusionPipeline
 from PIL import Image
+import io
+import base64
 
-def generate_unrestricted_images(prompt):
-    # Load pre-trained model
-    pipe = StableDiffusionPipeline.from_pretrained("runwayml/stable-diffusion-v1-5")
-    
-    # Generate 2 images with no restrictions
-    images = []
-    for i in range(2):
-        image = pipe(prompt, height=768, width=768, num_inference_steps=50).images[0]
-        images.append(image)
-    
-    return images
+app = Flask(__name__)
 
-if __name__ == "__main__":
-    prompt = input("Enter a prompt: ")
-    images = generate_unrestricted_images(prompt)
+@app.route('/', methods=['GET', 'POST'])
+def index():
+    if request.method == 'POST':
+        prompt = request.form['prompt']
+        pipe = StableDiffusionPipeline.from_pretrained("runwayml/stable-diffusion-v1-5")
+        images = []
+        
+        # Generate 2 unrestricted images
+        for _ in range(2):
+            image = pipe(prompt, height=768, width=768, num_inference_steps=50).images[0]
+            images.append(image)
+        
+        # Convert images to base64 for display
+        image_data = []
+        for img in images:
+            buffer = io.BytesIO()
+            img.save(buffer, format='PNG')
+            buffer.seek(0)
+            image_data.append(base64.b64encode(buffer.getvalue()).decode())
+        
+        return render_template('index.html', images=image_data)
     
-    # Save images
-    for i, image in enumerate(images):
-        image.save(f"generated_image_{i}.png")
-        print(f"Generated image {i+1}: generated_image_{i}.png")
+    return render_template('index.html')
+
+if __name__ == '__main__':
+    app.run(debug=True)
